@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""
+Exporting csv file to google spreadsheets
+"""
+from library.args import servicenowargs
+from library.gspread_client import init_cred_gspread_client
+from library.gspread_client import copy_to_csv
+from library.gspread_client import get_sheetid
+from library.gspread_client import copy_to_main_spreadsheet
+from library.gspread_client import get_values
+from library.gspread_client import get_dest_sheetid
+from library.gspread_client import remove_existing_sheet
+from library.gspread_client import copy_to_main_sheet
+from library.gspread_client import _batch
+from library.gspread_client import renameSheet
+from library.gspread_client import create_new_sheet
+from library.gspread_client import add_sheet
+from library.gspread_client import find_sheet
+from googleapiclient import discovery
+from oauth2client.service_account import ServiceAccountCredentials
+
+
+
+if __name__ == '__main__':
+
+
+    ARGS = servicenowargs()
+    CLIENT = init_cred_gspread_client()
+    spreadsheet_id = ARGS.spreadsheetid
+    filename = ARGS.outputfile
+    ranges = []
+    include_grid_data = False
+    
+    if ARGS.newspreadsheet and ARGS.email and ARGS.outputfile:
+        Newsheet = spreadsheet_id = create_new_sheet(ARGS.email, ARGS.newspreadsheet)
+        print(Newsheet)
+        if ARGS.newsheet:
+            sheetname = ARGS.newsheet
+        else:
+            sheetname = ARGS.newspreadsheet
+        print("newonetwstin")
+        print(sheetname)
+        SPREADSHEET_ID = copy_to_csv(sheetname, ARGS.outputfile)
+        SHEET_ID = get_sheetid(SPREADSHEET_ID, ranges, include_grid_data)
+        copy_to_main_spreadsheet(Newsheet, SPREADSHEET_ID, SHEET_ID)
+        DEST_SHEET_ID = get_dest_sheetid(sheetname, spreadsheet_id)
+        renameSheet(DEST_SHEET_ID, sheetname, spreadsheet_id)
+
+    elif ARGS.newsheet and ARGS.spreadsheetid and ARGS.outputfile:
+        SPREADSHEET_ID = copy_to_csv(ARGS.newsheet, ARGS.outputfile)
+        SHEET_ID = get_sheetid(SPREADSHEET_ID, ranges, include_grid_data)
+        copy_to_main_spreadsheet(spreadsheet_id, SPREADSHEET_ID, SHEET_ID)
+        DEST_SHEET_ID = get_dest_sheetid(ARGS.newsheet, spreadsheet_id)
+        print(DEST_SHEET_ID)
+        renameSheet(DEST_SHEET_ID, ARGS.newsheet, spreadsheet_id)
+
+    elif ARGS.spreadsheetid and ARGS.existingsheet and ARGS.outputfile:
+        check_sheet = find_sheet(ARGS.existingsheet, ARGS.spreadsheetid)
+        if check_sheet == None:
+            add_sheet(ARGS.existingsheet, ARGS.spreadsheetid)
+        SPREADSHEET_ID = copy_to_csv(ARGS.existingsheet, ARGS.outputfile)
+        SHEET_ID = get_sheetid(SPREADSHEET_ID, ranges, include_grid_data)
+        values = get_values(ARGS.existingsheet, SPREADSHEET_ID)
+        copy_to_main_sheet(ARGS.existingsheet, values, spreadsheet_id)
+
+    elif ARGS.replacesheet and ARGS.spreadsheetid and ARGS.outputfile:
+        SPREADSHEET_ID = copy_to_csv(ARGS.replacesheet, ARGS.outputfile)
+        SHEET_ID = get_sheetid(SPREADSHEET_ID, ranges, include_grid_data)
+        values = get_values(ARGS.replacesheet, SPREADSHEET_ID)
+        remove_existing_sheet(ARGS.replacesheet, spreadsheet_id)
+        copy_to_main_spreadsheet(spreadsheet_id, SPREADSHEET_ID, SHEET_ID)
+        DEST_SHEET_ID = get_dest_sheetid(ARGS.replacesheet, spreadsheet_id)
+        renameSheet(DEST_SHEET_ID, ARGS.replacesheet, spreadsheet_id)
+
+    elif ARGS.newspreadsheet:
+        sys.exit('Please provide email id along with spreadhseet name!')
+
+    elif ARGS.email:
+        sys.exit('Please provide New spreadheetname along with email!')
+    elif ARGS.spreadsheetid:
+        sys.exit('Please Make sure to provide sheetname as well !!!')
+    elif ARGS.newsheet:
+        sys.exit('Please provide spreadsheetid where you want \
+                 create this sheet - %s' %(ARGS.newsheet))
+    #Deleting Dummy sheet
+    CLIENT.del_spreadsheet(SPREADSHEET_ID)
